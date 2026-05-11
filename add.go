@@ -82,8 +82,8 @@ func (curve *CurveParams) AddPoints(P, Q *Point) *Point {
 	// Вычисление координат результата
 	// x3 = lambda^2 - x1 - x2 mod p
 	x3 := new(big.Int).Mul(lambda, lambda) // lambda^2
-	x3.Sub(x3, x1)                        // lambda^2 - x1
-	x3.Sub(x3, x2)                        // lambda^2 - x1 - x2
+	x3.Sub(x3, x1)                         // lambda^2 - x1
+	x3.Sub(x3, x2)                         // lambda^2 - x1 - x2
 	x3.Mod(x3, curve.P)
 
 	// y3 = lambda*(x1 - x3) - y1 mod p
@@ -97,4 +97,41 @@ func (curve *CurveParams) AddPoints(P, Q *Point) *Point {
 		Y:   y3,
 		Inf: false,
 	}
+}
+
+// Double удваивает точку P: P + P.
+func (curve *CurveParams) Double(P *Point) *Point {
+	return curve.AddPoints(P, P)
+}
+
+// ScalarMult умножает точку P на скаляр k (двоичный метод double-and-add).
+func (curve *CurveParams) ScalarMult(k *big.Int, P *Point) *Point {
+	if k.Sign() < 0 {
+		return curve.ScalarMult(new(big.Int).Neg(k), Neg(P, curve.P))
+	}
+
+	if k.Sign() == 0 {
+		return NewInfinityPoint()
+	}
+	if P == nil || P.Inf {
+		return NewInfinityPoint()
+	}
+
+	// Двоичный метод (double-and-add)
+	result := NewInfinityPoint()
+	base := &Point{
+		X:   new(big.Int).Set(P.X),
+		Y:   new(big.Int).Set(P.Y),
+		Inf: P.Inf,
+	}
+	kCopy := new(big.Int).Set(k)
+
+	for kCopy.Sign() > 0 {
+		if kCopy.Bit(0) == 1 {
+			result = curve.AddPoints(result, base)
+		}
+		base = curve.Double(base)
+		kCopy.Rsh(kCopy, 1)
+	}
+	return result
 }
