@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/big"
+	"testing"
 )
 
 type CurveParams struct {
@@ -146,8 +147,56 @@ func IsValidCurveParams(params *CurveParams) bool {
 }
 
 
-func main() {
-	fmt.Println("ЭЦП ГОСТ 256 бит")
+// Neg возвращает точку -P: (x, -y mod p)
+func Neg(P *Point, p *big.Int) *Point {
+	if P == nil || P.Inf {
+		return NewInfinityPoint()
+	}
+	negY := new(big.Int).Neg(P.Y)
+	negY.Mod(negY, p)
+	return &Point{
+		X:   new(big.Int).Set(P.X),
+		Y:   negY,
+		Inf: false,
+	}
+}
+
+// Equal сравнивает точки (с учётом Inf)
+func Equal(P, Q *Point) bool {
+	if P == nil && Q == nil {
+		return true
+	}
+	if P == nil || Q == nil {
+		return false
+	}
+	if P.Inf && Q.Inf {
+		return true
+	}
+	if P.Inf != Q.Inf {
+		return false
+	}
+	return P.X.Cmp(Q.X) == 0 && P.Y.Cmp(Q.Y) == 0
+}
+
+// IsOnCurve проверяет, лежит ли точка на эллиптической кривой
+func (curve *CurveParams) IsOnCurve(p *Point) bool {
+    if p.Inf {
+        return true
+    }
+    // y^2 mod p
+    lhs := new(big.Int).Exp(p.Y, big.NewInt(2), curve.P)
+    // x^3 + a*x + b mod p
+    x3 := new(big.Int).Exp(p.X, big.NewInt(3), curve.P)
+    ax := new(big.Int).Mul(curve.A, p.X)
+    ax.Mod(ax, curve.P)
+    rhs := new(big.Int).Add(x3, ax)
+    rhs.Add(rhs, curve.B)
+    rhs.Mod(rhs, curve.P)
+    return lhs.Cmp(rhs) == 0
+}
+
+// Этот тестовый случай использует твои же CurveParams — его можно подключить к main.go.
+func TestCurveParams_Add(t *testing.T) {
 	params := &CurveParams{
 		OID: "1.2.643.2.2.35.1",
 		P:   mustParse("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD97"),
@@ -156,10 +205,69 @@ func main() {
 		M:   mustParse("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6C611070995AD10045841B09B761B893"),
 		Q:   mustParse("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6C611070995AD10045841B09B761B893"),
 		GX:  mustParse("1"),
-		GY:  mustParse("8D91E471E0989CDA27DF505A453F2B7635294F2DDF23E3B122ACC99C9E9F1E14"), //в big-endian виде
+		GY:  mustParse("8D91E471E0989CDA27DF505A453F2B7635294F2DDF23E3B122ACC99C9E9F1E14"),
 	}
+
 	if !IsValidCurveParams(params) {
-		panic("параметры кривой не проходят проверку")
+		t.Fatal("параметры кривой не проходят проверку в тесте")
 	}
-	fmt.Println("Параметры кривой корректны")
+
+	G := &Point{X: params.GX, Y: params.GY, Inf: false}
+	O := NewInfinityPoint()
+
+	// 1. G + O = G
+	sum1 := params.AddPoints(G, O)
+	if !Equal(sum1, G) {
+		t.Errorf("G + O хотели получить G, получили (%X, %X)", sum1.X, sum1.Y)
+	}
+
+	// 2. O + G = G
+	sum2 := params.AddPoints(O, G)
+	if !Equal(sum2, G) {
+		t.Errorf("O + G хотели получить G, получили (%X, %X)", sum2.X, sum2.Y)
+	}
+
+	// 3. G + (-G) = O
+	negG := Neg(G, params.P)
+	sum3 := params.AddPoints(G, negG)
+	if !sum3.Inf {
+		t.Errorf("G + (-G) хотели получить O, получили (%X, %X)", sum3.X, sum3.Y)
+	}
+
+	// 4. O + O = O
+	sum4 := params.AddPoints(O, O)
+	if !sum4.Inf {
+		t.Errorf("O + O хотели получить O, получили (%X, %X)", sum4.X, sum4.Y)
+	}
+
+	// 5. 2G лежит на кривой
+	doubleG := params.AddPoints(G, G)
+	if !params.IsOnCurve(doubleG) {
+		t.Errorf("2G не лежит на кривой: (%X, %X)", doubleG.X, doubleG.Y)
+	}
+
+	// 6. G + 2G = 3G, и 3G тоже лежит на кривой
+	tripleG := params.AddPoints(G, doubleG)
+	if !params.IsOnCurve(tripleG) {
+		t.Errorf("3G не лежит на кривой: (%X, %X)", tripleG.X, tripleG.Y)
+	}
+
+	// 7. (G + 2G) + (-2G) = G
+	neg2G := Neg(doubleG, params.P)
+	sum5 := params.AddPoints(tripleG, neg2G)
+	if !Equal(sum5, G) {
+		t.Errorf("(G + 2G) + (-2G) хотели получить G, а получили (%X, %X)", sum5.X, sum5.Y)
+	}
+}
+
+
+func main() {
+	fmt.Println("ЭЦП ГОСТ 256 бит")
+	test := &testing.T{}
+	TestCurveParams_Add(test)
+	if !test.Failed() {
+		fmt.Println("Все тесты пройдены успешно")
+	} else {
+		fmt.Println("Некоторые тесты не прошли")
+	}
 }
