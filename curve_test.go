@@ -315,14 +315,9 @@ func TestCurveParams_ScalarMult_Random(t *testing.T) {
 	mustEqualPoints(t, k1G, kgPlusG, "(k+1)G == kG + G")
 }
 
-// ----------------------------------------------------------------------------
-// Тест на известные тестовые векторы (если есть)
-// Можно добавить конкретные r,s из ГОСТ или RFC
-// ----------------------------------------------------------------------------
-
 // TestGOSTSignVerifyFromRFC7091 проверяет полный цикл подписи и проверки по официальному примеру.
-func TestGOSTSignVerifyFromRFC7091(t *testing.T) {
-	// 1. Определяем тестовые параметры кривой из RFC 7091 (ОБРАТИТЕ ВНИМАНИЕ: это ТЕСТОВАЯ кривая)
+func TestGOSTSignVerifyFromGOST(t *testing.T) {
+	// 1. Определяем тестовые параметры кривой из ГОСТ Р 34.10-2012
 	testParams := &CurveParams{
 		P:  mustParse("8000000000000000000000000000000000000000000000000000000000000431"),
 		A:  mustParse("7"),
@@ -333,14 +328,13 @@ func TestGOSTSignVerifyFromRFC7091(t *testing.T) {
 		// Остальные поля (M, OID) для этого теста не критичны
 	}
 
-	d := mustParse("7A929ADE789BB9BE10ED359DD39A72C11B60961F49397EEE1D19CE9891EC3B28") // Закрытый ключ из RFC
-	e := mustParse("2DFBC1B372D89A1188C09C52E0EEC61FCE52032AB1022E8E67ECE6672B043EE5") // Хеш сообщения из RFC
-	k := mustParse("77105C9B20BCD3122823C8CF6FCC7B956DE33814E95B7FE64FED924594DCEAB3") // Случайное число из RFC
+	d := mustParse("7A929ADE789BB9BE10ED359DD39A72C11B60961F49397EEE1D19CE9891EC3B28") // Закрытый ключ из ГОСТ
+	e := mustParse("2DFBC1B372D89A1188C09C52E0EEC61FCE52032AB1022E8E67ECE6672B043EE5") // Хеш сообщения из ГОСТ
+	k := mustParse("77105C9B20BCD3122823C8CF6FCC7B956DE33814E95B7FE64FED924594DCEAB3") // Случайное число из ГОСТ
 
 	// Ожидаемая подпись (r, s) из RFC
-	expectedR := mustParse("41AA28D2F1AB148280CD9ED56FEDA41974053554A42767B83AD043FD39DC0493")
-	expectedS := mustParse("EFA09BEB5C0A1B9D8F6E1F4B3C2D1A0F9E8D7C6B5A4321F0E9D8C7B6A5F4E3D2") // ПРИМЕРНОЕ значение, замените на реальное из RFC
-	// возьмите значение s из RFC
+	expectedR := mustParse("41AA28D2F1AB148280CD9ED56FEDA41974053554A42767B83AD043FD39DC0493") //Из ГОСТ
+	expectedS := mustParse("1456C64BA4642A1653C235A98A60249BCD6D3F746B631DF928014F6C5BF9C40")  //Из ГОСТ
 
 	// Алгоритм подписи:
 	// 1. Вычисляем точку C = k * G
@@ -354,6 +348,7 @@ func TestGOSTSignVerifyFromRFC7091(t *testing.T) {
 
 	// Сравниваем полученные r и s с ожидаемыми
 	if r.Cmp(expectedR) != 0 || s.Cmp(expectedS) != 0 {
-		t.Errorf("Подпись не совпадает с эталоном из RFC 7091")
+		t.Errorf("Подпись не совпадает с эталоном из ГОСТ.")
 	}
+
 }
