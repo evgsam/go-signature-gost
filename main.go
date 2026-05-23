@@ -4,7 +4,23 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+
+	"github.com/mikhirev/gostribog" // Библиотека для хеширования Стрибогом
 )
+
+func (curve *CurveParams) hashToNumber(msg []byte) *big.Int { // Хешируем сообщение и преобразуем в число
+	hasher := gostribog.New256()
+	hasher.Write(msg)
+	hash := hasher.Sum(nil)
+
+	e := new(big.Int).SetBytes(hash)
+	e.Mod(e, curve.Q)
+
+	if e.Sign() == 0 {
+		e.SetInt64(1)
+	}
+	return e
+}
 
 func (curve *CurveParams) GenerateKey() (d *big.Int, H *Point, err error) {
 	Q := curve.Q
