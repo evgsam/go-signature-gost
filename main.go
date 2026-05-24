@@ -31,23 +31,23 @@ func (curve *CurveParams) Sign(d, e *big.Int) (r, s *big.Int, err error) { // П
 	G := &Point{X: curve.GX, Y: curve.GY, Inf: false}
 
 	for {
-		k, err := rand.Int(rand.Reader, Q)
-		if err != nil {
+		k, err := rand.Int(rand.Reader, Q) // Генерируем случайное k в диапазоне [1, Q-1]
+		if err != nil {                    // Если произошла ошибка при генерации k, возвращаем ошибку
 			return nil, nil, err
 		}
-		if k.Sign() == 0 {
+		if k.Sign() == 0 { // Если k равно 0, генерируем новое k
 			continue
 		}
 
-		C := curve.ScalarMult(k, G)
-		r = new(big.Int).Mod(C.X, Q)
-		if r.Sign() == 0 {
+		C := curve.ScalarMult(k, G)  // Вычисляем точку C = k*G
+		r = new(big.Int).Mod(C.X, Q) // r = C.X mod Q
+		if r.Sign() == 0 {           // Если r равно 0, генерируем новое k
 			continue
 		}
 
-		s = new(big.Int).Add(new(big.Int).Mul(r, d), new(big.Int).Mul(k, e))
-		s.Mod(s, Q)
-		if s.Sign() != 0 {
+		s = new(big.Int).Add(new(big.Int).Mul(r, d), new(big.Int).Mul(k, e)) // s = (r*d + k*e)
+		s.Mod(s, Q)                                                          // s = (r*d + k*e) mod Q
+		if s.Sign() != 0 {                                                   // Если s не равно 0, возвращаем r и s
 			return r, s, nil
 		}
 	}
