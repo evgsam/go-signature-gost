@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"math/big"
+	"os"
+	"strings"
 )
 
 // main — точка входа в программу.
 // Демонстрирует генерацию ключей, подпись сообщения и проверку подписи по ГОСТ Р 34.10-2012.
 func main() {
-	fmt.Println("ЭЦП ГОСТ 256 бит")
+	// Инициализируем сканер для чтения ввода пользователя
+	scanner := bufio.NewScanner(os.Stdin)
 
 	// Параметры кривой (набор 1.2.643.2.2.35.1 — ГОСТ Р 34.10-2015, 256 бит)
 	params := &CurveParams{
@@ -22,45 +25,117 @@ func main() {
 		GY:  mustParse("8D91E471E0989CDA27DF505A453F2B7635294F2DDF23E3B122ACC99C9E9F1E14"),
 	}
 
-	// Генерация ключей
-	d, H, err := params.GenerateKey()
-	if err != nil {
-		panic(err)
+	// Основной цикл программы — отображение меню до выбора выхода
+	for {
+		fmt.Println("1. Сгенерировать ключевую пару")
+		fmt.Println("2. Подписать файл")
+		fmt.Println("3. Проверить подпись")
+		fmt.Println("4. Выход")
+		fmt.Print(">> ")
+
+		if !scanner.Scan() {
+			return
+		}
+		choice := strings.TrimSpace(scanner.Text())
+
+		switch choice {
+		// Генерация ключевой пары
+		case "1":
+			fmt.Println("Генерация ключей...")
+			d, H, err := params.GenerateKey()
+			if err != nil {
+				fmt.Printf("Ошибка генерации: %v\n", err)
+				continue
+			}
+
+			// Сохраняем закрытый ключ
+			if err := savePrivateKey(d, "private.key"); err != nil {
+				fmt.Printf("Ошибка сохранения закрытого ключа: %v\n", err)
+				continue
+			}
+
+			// Сохраняем открытый ключ
+			if err := savePublicKey(H, "public.key"); err != nil {
+				fmt.Printf("Ошибка сохранения открытого ключа: %v\n", err)
+				continue
+			}
+
+			// Проверка, что открытый ключ лежит на кривой
+			if params.IsOnCurve(H) {
+				fmt.Println("Ключевая пара создана")
+				fmt.Println("Открытый ключ корректен (лежит на кривой)")
+				fmt.Println("Закрытый ключ: private.key")
+				fmt.Println("Открытый ключ: public.key")
+			} else {
+				fmt.Println("Ошибка: открытый ключ не лежит на кривой")
+			}
+
+		// Подпись файла
+		case "2":
+			fmt.Print("Введите путь к файлу для подписи: ")
+			if !scanner.Scan() {
+				return
+			}
+			msgFile := strings.TrimSpace(scanner.Text())
+
+			fmt.Print("Введите путь к закрытому ключу (private.key): ")
+			if !scanner.Scan() {
+				return
+			}
+			privKeyFile := strings.TrimSpace(scanner.Text())
+
+			fmt.Print("Введите путь для сохранения подписи (signature.sig): ")
+			if !scanner.Scan() {
+				return
+			}
+			sigFile := strings.TrimSpace(scanner.Text())
+
+			// Загружаем закрытый ключ
+			d, err := loadPrivateKey(privKeyFile)
+			if err != nil {
+				fmt.Printf("Ошибка загрузки закрытого ключа: %v\n", err)
+				continue
+			}
+
+			// Подписываем файл
+			if err := SignFile(params, msgFile, sigFile, d); err != nil {
+				fmt.Printf("Ошибка подписи: %v\n", err)
+				continue
+			}
+
+		// Проверка подписи
+		case "3":
+			fmt.Print("Введите путь к подписываемому файлу: ")
+			if !scanner.Scan() {
+				return
+			}
+			msgFile := strings.TrimSpace(scanner.Text())
+
+			fmt.Print("Введите путь к файлу подписи (signature.sig): ")
+			if !scanner.Scan() {
+				return
+			}
+			sigFile := strings.TrimSpace(scanner.Text())
+
+			fmt.Print("Введите путь к открытому ключу (public.key): ")
+			if !scanner.Scan() {
+				return
+			}
+			pubKeyFile := strings.TrimSpace(scanner.Text())
+
+			// Проверяем подпись
+			if err := VerifyFile(params, msgFile, sigFile, pubKeyFile); err != nil {
+				fmt.Printf("Ошибка проверки подписи: %v\n", err)
+				continue
+			}
+
+		// Выход из программы
+		case "4":
+			fmt.Println("Выход.")
+			return
+
+		default:
+			fmt.Println("Неверный пункт меню")
+		}
 	}
-
-	fmt.Printf("Закрытый ключ d: %X\n", d)
-	fmt.Printf("Открытый ключ H: (%X, %X)\n", H.X, H.Y)
-
-	// Проверка, что открытый ключ лежит на кривой
-	if params.IsOnCurve(H) {
-		fmt.Println("Открытый ключ корректен (лежит на кривой)")
-	} else {
-		fmt.Println("Ошибка: открытый ключ не лежит на кривой")
-	}
-
-	// ---- Демонстрация подписи и проверки ----
-	msg := []byte("Тестовое сообщение для подписи по ГОСТ Р 34.10-2012")
-	fmt.Printf("\nСообщение: %s\n", msg)
-
-	// Хеш сообщения
-	e := params.hashToNumber(msg)
-	fmt.Printf("Хеш (e): %X\n", e)
-
-	// Подпись
-	r, s, err := params.Sign(d, e)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Подпись: r = %X\n", r)
-	fmt.Printf("        s = %X\n", s)
-
-	// Проверка подписи
-	valid := params.Verify(H, msg, r, s)
-	fmt.Printf("Проверка подписи: %v\n", valid)
-
-	// Проверка с изменённой подписью (неверное s)
-	sBad := new(big.Int).Set(s)
-	sBad.Add(sBad, big.NewInt(1))
-	validBad := params.Verify(H, msg, r, sBad)
-	fmt.Printf("Проверка подписи с изменённым s: %v\n", validBad)
 }
