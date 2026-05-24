@@ -16,10 +16,41 @@ func (curve *CurveParams) hashToNumber(msg []byte) *big.Int { // Хешируе�
 	e := new(big.Int).SetBytes(hash)
 	e.Mod(e, curve.Q)
 
-	if e.Sign() == 0 {
-		e.SetInt64(1)
+	if e.Sign() == 0 { // по ГОСТ - если e равно 0
+		e.SetInt64(1) // то e должно быть 1
 	}
 	return e
+}
+
+func (curve *CurveParams) Sign(d, e *big.Int) (r, s *big.Int, err error) { // Подпись сообщения
+	Q := curve.Q
+	if Q == nil || Q.Sign() <= 0 {
+		return nil, nil, fmt.Errorf("некорректный порядок Q")
+	}
+
+	G := &Point{X: curve.GX, Y: curve.GY, Inf: false}
+
+	for {
+		k, err := rand.Int(rand.Reader, Q)
+		if err != nil {
+			return nil, nil, err
+		}
+		if k.Sign() == 0 {
+			continue
+		}
+
+		C := curve.ScalarMult(k, G)
+		r = new(big.Int).Mod(C.X, Q)
+		if r.Sign() == 0 {
+			continue
+		}
+
+		s = new(big.Int).Add(new(big.Int).Mul(r, d), new(big.Int).Mul(k, e))
+		s.Mod(s, Q)
+		if s.Sign() != 0 {
+			return r, s, nil
+		}
+	}
 }
 
 func (curve *CurveParams) GenerateKey() (d *big.Int, H *Point, err error) {
