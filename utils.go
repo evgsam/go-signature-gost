@@ -6,6 +6,8 @@ import (
 )
 
 // mustParse преобразует шестнадцатеричную строку в *big.Int.
+// Используется для загрузки параметров кривой из hex-представления.
+// При ошибке парсинга паникует.
 func mustParse(hexStr string) *big.Int {
 	n := new(big.Int)
 	_, ok := n.SetString(hexStr, 16)
@@ -16,6 +18,7 @@ func mustParse(hexStr string) *big.Int {
 }
 
 // PrintPoint выводит точку в удобочитаемом формате.
+// Для точки на бесконечности выводит "O".
 func PrintPoint(label string, p *Point) {
 	if p.Inf {
 		fmt.Printf("%s: O (точка на бесконечности)\n", label)
