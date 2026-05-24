@@ -143,4 +143,30 @@ func main() {
 	} else {
 		fmt.Println("Ошибка: открытый ключ не лежит на кривой")
 	}
+
+	// ---- Демонстрация подписи и проверки ----
+	msg := []byte("Тестовое сообщение для подписи по ГОСТ Р 34.10-2012")
+	fmt.Printf("\nСообщение: %s\n", msg)
+
+	// Хеш сообщения
+	e := params.hashToNumber(msg)
+	fmt.Printf("Хеш (e): %X\n", e)
+
+	// Подпись
+	r, s, err := params.Sign(d, e)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Подпись: r = %X\n", r)
+	fmt.Printf("        s = %X\n", s)
+
+	// Проверка подписи
+	valid := params.Verify(H, msg, r, s)
+	fmt.Printf("Проверка подписи: %v\n", valid)
+
+	// Проверка с изменённой подписью (неверное s)
+	sBad := new(big.Int).Set(s)
+	sBad.Add(sBad, big.NewInt(1))
+	validBad := params.Verify(H, msg, r, sBad)
+	fmt.Printf("Проверка подписи с изменённым s: %v\n", validBad)
 }
