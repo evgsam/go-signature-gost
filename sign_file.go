@@ -33,8 +33,9 @@ func SignFile(params *CurveParams, msgFile, signatureFile string, d *big.Int) er
 		return fmt.Errorf("ошибка сохранения подписи: %w", err)
 	}
 
-	fmt.Printf("Подпись успешно создана: r = %X\n", r)
-	fmt.Printf("        s = %X\n", s)
+	fmt.Println("Подпись успешно создана: ")
+	fmt.Printf(" r = %X\n", r)
+	fmt.Printf(" s = %X\n", s)
 	return nil
 }
 
